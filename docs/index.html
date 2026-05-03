@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shell Sort Demo</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; line-height: 1.5; }
+      .container { max-width: 900px; margin: 0 auto; }
+      textarea, input { width: 100%; padding: 10px; font-size: 14px; box-sizing: border-box; }
+      textarea { min-height: 90px; }
+      button { padding: 10px 14px; font-size: 14px; cursor: pointer; }
+      .row { display: grid; grid-template-columns: 1fr; gap: 12px; }
+      .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+      @media (min-width: 800px) { .grid { grid-template-columns: 1fr 1fr; } }
+      .card { border: 1px solid rgba(127,127,127,.35); border-radius: 10px; padding: 14px; }
+      code { background: rgba(127,127,127,.18); padding: 2px 6px; border-radius: 6px; }
+      pre { background: rgba(127,127,127,.12); padding: 12px; border-radius: 10px; overflow: auto; }
+      .muted { opacity: .8; font-size: 13px; }
+      .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+      label { font-weight: 600; display: block; margin-bottom: 6px; }
+      .ok { color: #0a7; }
+      .ng { color: #d33; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Shell Sort Demo</h1>
+      <p class="muted">
+        ブラウザ上でシェルソートを試せるサンプルです。入力は <code>カンマ区切り</code> / <code>空白区切り</code> どちらでもOKです。
+      </p>
+
+      <div class="grid">
+        <div class="card">
+          <label for="input">入力（数値の配列）</label>
+          <textarea id="input">9, 5, 3, 1, 8, 7, 2, 4</textarea>
+
+          <div class="actions" style="margin-top: 10px">
+            <button id="sortBtn">Sort</button>
+            <button id="resetBtn" type="button">Reset</button>
+            <span id="status" class="muted"></span>
+          </div>
+
+          <p class="muted" style="margin-top: 10px">
+            gap 列は <code>n/2 → n/4 → ... → 1</code>（切り捨て）です。
+          </p>
+        </div>
+
+        <div class="card">
+          <label for="output">出力</label>
+          <pre id="output">ここに結果が表示されます</pre>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 12px">
+        <details>
+          <summary><strong>アルゴリズム（このページの実装）</strong></summary>
+          <p class="muted">
+            リポジトリの <code>src/shell-sort.ts</code> の考え方に合わせて、同じロジックを JavaScript で書いています。
+          </p>
+          <pre><code id="algo"></code></pre>
+        </details>
+      </div>
+    </div>
+
+    <script>
+      // --- Shell sort implementation (JS) ---
+      function getGapList(n) {
+        const gaps = [];
+        for (let gap = Math.floor(n / 2); gap > 0; gap = Math.floor(gap / 2)) {
+          gaps.push(gap);
+        }
+        return gaps;
+      }
+
+      function gapInsertionSort(list, gap) {
+        for (let i = gap; i < list.length; i++) {
+          const temp = list[i];
+          let j = i;
+          while (j >= gap && list[j - gap] > temp) {
+            list[j] = list[j - gap];
+            j -= gap;
+          }
+          list[j] = temp;
+        }
+      }
+
+      function shellSort(list) {
+        const gapList = getGapList(list.length);
+        gapList.forEach((gap) => gapInsertionSort(list, gap));
+        return list;
+      }
+
+      // --- UI helpers ---
+      function parseNumbers(text) {
+        // allow commas / spaces / newlines
+        const tokens = text
+          .trim()
+          .split(/[\s,]+/g)
+          .filter(Boolean);
+
+        if (tokens.length === 0) return { ok: false, error: "入力が空です" };
+
+        const nums = tokens.map((t) => Number(t));
+        if (nums.some((n) => Number.isNaN(n))) {
+          return { ok: false, error: "数値に変換できない値が含まれています" };
+        }
+        return { ok: true, value: nums };
+      }
+
+      const inputEl = document.getElementById("input");
+      const outputEl = document.getElementById("output");
+      const statusEl = document.getElementById("status");
+      const sortBtn = document.getElementById("sortBtn");
+      const resetBtn = document.getElementById("resetBtn");
+      const algoEl = document.getElementById("algo");
+
+      algoEl.textContent =
+`getGapList(n): floor(n/2) から半分ずつ減らして 1 までの gap を作る\n\ngapInsertionSort(list, gap): gap 間隔で挿入ソート\n\nshellSort(list): 各 gap で gapInsertionSort を適用`;
+
+      function setStatus(msg, ok) {
+        statusEl.textContent = msg || "";
+        statusEl.className = ok ? "muted ok" : "muted ng";
+      }
+
+      function renderResult(input, sorted) {
+        const gaps = getGapList(input.length);
+        outputEl.textContent =
+`入力:   [${input.join(", ")}]\n\ngap:    [${gaps.join(", ")}]\n結果:   [${sorted.join(", ")}]`;
+      }
+
+      sortBtn.addEventListener("click", () => {
+        const parsed = parseNumbers(inputEl.value);
+        if (!parsed.ok) {
+          setStatus(parsed.error, false);
+          outputEl.textContent = "入力エラー: " + parsed.error;
+          return;
+        }
+        const original = parsed.value;
+        const copy = [...original];
+        const sorted = shellSort(copy);
+        setStatus("OK", true);
+        renderResult(original, sorted);
+      });
+
+      resetBtn.addEventListener("click", () => {
+        inputEl.value = "9, 5, 3, 1, 8, 7, 2, 4";
+        setStatus("", true);
+        outputEl.textContent = "ここに結果が表示されます";
+      });
+    </script>
+  </body>
+</html>
